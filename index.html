@@ -1,0 +1,847 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vibe Beat Maker</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;900&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    background: #0a0a0f;
+    color: #e0e0e0;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  .bg-glow {
+    position: fixed;
+    top: -200px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 800px;
+    height: 800px;
+    background: radial-gradient(circle, rgba(139,92,246,0.15) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    position: relative;
+    z-index: 1;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 30px 20px;
+  }
+
+  header {
+    text-align: center;
+    margin-bottom: 30px;
+  }
+
+  header h1 {
+    font-size: 2.5rem;
+    font-weight: 900;
+    background: linear-gradient(135deg, #a78bfa, #6d28d9, #ec4899);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    letter-spacing: -1px;
+  }
+
+  header p {
+    color: #6b7280;
+    margin-top: 6px;
+    font-size: 0.95rem;
+  }
+
+  /* --- Визуализатор --- */
+  .visualizer-wrap {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 16px;
+    padding: 16px;
+    margin-bottom: 24px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  canvas#visualizer {
+    width: 100%;
+    height: 120px;
+    display: block;
+    border-radius: 10px;
+  }
+
+  /* --- Контролы --- */
+  .controls {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    margin-bottom: 28px;
+    flex-wrap: wrap;
+  }
+
+  .btn {
+    border: none;
+    cursor: pointer;
+    border-radius: 12px;
+    font-family: inherit;
+    font-weight: 600;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .btn:active { transform: scale(0.96); }
+
+  .btn-play {
+    background: linear-gradient(135deg, #7c3aed, #a78bfa);
+    color: #fff;
+    padding: 14px 32px;
+    font-size: 1.05rem;
+    box-shadow: 0 0 20px rgba(124,58,237,0.3);
+  }
+
+  .btn-play:hover { box-shadow: 0 0 30px rgba(124,58,237,0.5); }
+
+  .btn-play.playing {
+    background: linear-gradient(135deg, #dc2626, #f87171);
+    box-shadow: 0 0 20px rgba(220,38,38,0.3);
+  }
+
+  .btn-clear {
+    background: rgba(255,255,255,0.06);
+    color: #9ca3af;
+    padding: 14px 24px;
+    font-size: 0.95rem;
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+
+  .btn-clear:hover { background: rgba(255,255,255,0.1); color: #e0e0e0; }
+
+  .tempo-control {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(255,255,255,0.04);
+    padding: 10px 18px;
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+
+  .tempo-control label {
+    font-size: 0.85rem;
+    color: #6b7280;
+    font-weight: 600;
+  }
+
+  .tempo-control span {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #a78bfa;
+    min-width: 50px;
+    text-align: center;
+  }
+
+  input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    height: 6px;
+    border-radius: 3px;
+    background: rgba(255,255,255,0.1);
+    outline: none;
+    width: 120px;
+  }
+
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #7c3aed;
+    cursor: pointer;
+    box-shadow: 0 0 8px rgba(124,58,237,0.5);
+  }
+
+  /* --- Секвенсор --- */
+  .sequencer {
+    background: rgba(255,255,255,0.02);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 16px;
+    padding: 20px;
+    overflow-x: auto;
+  }
+
+  .seq-row {
+    display: flex;
+    align-items: center;
+    margin-bottom: 6px;
+  }
+
+  .seq-row:last-child { margin-bottom: 0; }
+
+  .seq-label {
+    width: 80px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #9ca3af;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .seq-label .emoji {
+    font-size: 1.1rem;
+  }
+
+  .seq-steps {
+    display: flex;
+    gap: 4px;
+    flex: 1;
+  }
+
+  .step {
+    flex: 1;
+    aspect-ratio: 1;
+    max-height: 48px;
+    border-radius: 8px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.06);
+    cursor: pointer;
+    transition: all 0.15s;
+    position: relative;
+    min-width: 0;
+  }
+
+  .step:hover {
+    background: rgba(255,255,255,0.08);
+    transform: scale(1.05);
+  }
+
+  .step.active {
+    box-shadow: 0 0 12px var(--glow-color, rgba(124,58,237,0.4));
+    border-color: var(--border-color, #7c3aed);
+  }
+
+  .step.current {
+    outline: 2px solid #fff;
+    outline-offset: -2px;
+    z-index: 2;
+  }
+
+  .step.group-start {
+    margin-left: 4px;
+  }
+
+  /* Цвета для инструментов */
+  .row-kick .step.active { --glow-color: rgba(239,68,68,0.5); --border-color: #ef4444; background: rgba(239,68,68,0.3); }
+  .row-snare .step.active { --glow-color: rgba(245,158,11,0.5); --border-color: #f59e0b; background: rgba(245,158,11,0.3); }
+  .row-hihat .step.active { --glow-color: rgba(34,197,94,0.5); --border-color: #22c55e; background: rgba(34,197,94,0.3); }
+  .row-clap .step.active { --glow-color: rgba(59,130,246,0.5); --border-color: #3b82f6; background: rgba(59,130,246,0.3); }
+  .row-tom .step.active { --glow-color: rgba(168,85,247,0.5); --border-color: #a855f7; background: rgba(168,85,247,0.3); }
+
+  /* --- Пресеты --- */
+  .presets {
+    display: flex;
+    gap: 10px;
+    margin-top: 20px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .preset-btn {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    color: #9ca3af;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: inherit;
+  }
+
+  .preset-btn:hover {
+    background: rgba(124,58,237,0.15);
+    border-color: rgba(124,58,237,0.3);
+    color: #a78bfa;
+  }
+
+  /* --- Футер --- */
+  .footer {
+    text-align: center;
+    margin-top: 30px;
+    color: #4b5563;
+    font-size: 0.8rem;
+  }
+
+  .footer span {
+    color: #a78bfa;
+  }
+
+  /* Анимация пульсации */
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+  }
+
+  .recording-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #ef4444;
+    display: none;
+    animation: pulse 1s infinite;
+  }
+
+  .recording-dot.active { display: block; }
+
+  /* Responsive */
+  @media (max-width: 600px) {
+    header h1 { font-size: 1.8rem; }
+    .seq-label { width: 60px; font-size: 0.7rem; }
+    .step { border-radius: 5px; }
+    .controls { gap: 10px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="bg-glow"></div>
+
+<div class="container">
+  <header>
+    <h1>⚡ Vibe Beat Maker</h1>
+    <p>Создай бит прямо в браузере — Vibe Coding в действии</p>
+  </header>
+
+  <!-- Визуализатор -->
+  <div class="visualizer-wrap">
+    <canvas id="visualizer"></canvas>
+  </div>
+
+  <!-- Контролы -->
+  <div class="controls">
+    <button class="btn btn-play" id="playBtn" onclick="togglePlay()">
+      <span id="playIcon">▶</span>
+      <span id="playText">Play</span>
+      <div class="recording-dot" id="recDot"></div>
+    </button>
+
+    <div class="tempo-control">
+      <label>BPM</label>
+      <input type="range" id="bpmSlider" min="60" max="200" value="120" oninput="updateBPM(this.value)">
+      <span id="bpmValue">120</span>
+    </div>
+
+    <button class="btn btn-clear" onclick="clearAll()">🗑 Очистить</button>
+  </div>
+
+  <!-- Секвенсор -->
+  <div class="sequencer" id="sequencer"></div>
+
+  <!-- Пресеты -->
+  <div class="presets">
+    <button class="preset-btn" onclick="loadPreset('hiphop')">🎤 Hip-Hop</button>
+    <button class="preset-btn" onclick="loadPreset('techno')">🤖 Techno</button>
+    <button class="preset-btn" onclick="loadPreset('dnb')">⚡ DnB</button>
+    <button class="preset-btn" onclick="loadPreset('reggaeton')">🌴 Reggaeton</button>
+  </div>
+
+  <div class="footer">
+    Сгенерировано с помощью <span>Vibe Coding</span> ✨
+  </div>
+</div>
+
+<script>
+// ======================== AUDIO ENGINE ========================
+const AudioCtx = window.AudioContext || window.webkitAudioContext;
+let audioCtx;
+let analyser;
+let masterGain;
+
+function ensureAudioCtx() {
+  if (!audioCtx) {
+    audioCtx = new AudioCtx();
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 256;
+    masterGain = audioCtx.createGain();
+    masterGain.gain.value = 0.7;
+    masterGain.connect(analyser);
+    analyser.connect(audioCtx.destination);
+  }
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+}
+
+// --- Синтез звуков ---
+function playKick(time) {
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(150, time);
+  osc.frequency.exponentialRampToValueAtTime(30, time + 0.12);
+  gain.gain.setValueAtTime(1, time);
+  gain.gain.exponentialRampToValueAtTime(0.001, time + 0.4);
+  osc.connect(gain);
+  gain.connect(masterGain);
+  osc.start(time);
+  osc.stop(time + 0.4);
+}
+
+function playSnare(time) {
+  // Noise
+  const bufferSize = audioCtx.sampleRate * 0.15;
+  const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+  const noise = audioCtx.createBufferSource();
+  noise.buffer = buffer;
+  const noiseGain = audioCtx.createGain();
+  noiseGain.gain.setValueAtTime(0.8, time);
+  noiseGain.gain.exponentialRampToValueAtTime(0.001, time + 0.15);
+  const noiseFilter = audioCtx.createBiquadFilter();
+  noiseFilter.type = 'highpass';
+  noiseFilter.frequency.value = 1000;
+  noise.connect(noiseFilter);
+  noiseFilter.connect(noiseGain);
+  noiseGain.connect(masterGain);
+  noise.start(time);
+  noise.stop(time + 0.15);
+
+  // Body
+  const osc = audioCtx.createOscillator();
+  const oscGain = audioCtx.createGain();
+  osc.type = 'triangle';
+  osc.frequency.setValueAtTime(200, time);
+  osc.frequency.exponentialRampToValueAtTime(80, time + 0.08);
+  oscGain.gain.setValueAtTime(0.7, time);
+  oscGain.gain.exponentialRampToValueAtTime(0.001, time + 0.1);
+  osc.connect(oscGain);
+  oscGain.connect(masterGain);
+  osc.start(time);
+  osc.stop(time + 0.1);
+}
+
+function playHiHat(time) {
+  const bufferSize = audioCtx.sampleRate * 0.05;
+  const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+  const noise = audioCtx.createBufferSource();
+  noise.buffer = buffer;
+  const gain = audioCtx.createGain();
+  gain.gain.setValueAtTime(0.4, time);
+  gain.gain.exponentialRampToValueAtTime(0.001, time + 0.05);
+  const filter = audioCtx.createBiquadFilter();
+  filter.type = 'highpass';
+  filter.frequency.value = 7000;
+  noise.connect(filter);
+  filter.connect(gain);
+  gain.connect(masterGain);
+  noise.start(time);
+  noise.stop(time + 0.05);
+}
+
+function playClap(time) {
+  for (let i = 0; i < 3; i++) {
+    const offset = i * 0.01;
+    const bufferSize = audioCtx.sampleRate * 0.02;
+    const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let j = 0; j < bufferSize; j++) data[j] = Math.random() * 2 - 1;
+    const noise = audioCtx.createBufferSource();
+    noise.buffer = buffer;
+    const gain = audioCtx.createGain();
+    gain.gain.setValueAtTime(0.5, time + offset);
+    gain.gain.exponentialRampToValueAtTime(0.001, time + offset + 0.08);
+    const filter = audioCtx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.value = 2500;
+    filter.Q.value = 3;
+    noise.connect(filter);
+    filter.connect(gain);
+    gain.connect(masterGain);
+    noise.start(time + offset);
+    noise.stop(time + offset + 0.08);
+  }
+  // Tail
+  const bufferSize2 = audioCtx.sampleRate * 0.15;
+  const buffer2 = audioCtx.createBuffer(1, bufferSize2, audioCtx.sampleRate);
+  const data2 = buffer2.getChannelData(0);
+  for (let j = 0; j < bufferSize2; j++) data2[j] = Math.random() * 2 - 1;
+  const noise2 = audioCtx.createBufferSource();
+  noise2.buffer = buffer2;
+  const gain2 = audioCtx.createGain();
+  gain2.gain.setValueAtTime(0.4, time + 0.03);
+  gain2.gain.exponentialRampToValueAtTime(0.001, time + 0.15);
+  const filter2 = audioCtx.createBiquadFilter();
+  filter2.type = 'bandpass';
+  filter2.frequency.value = 2500;
+  filter2.Q.value = 2;
+  noise2.connect(filter2);
+  filter2.connect(gain2);
+  gain2.connect(masterGain);
+  noise2.start(time + 0.03);
+  noise2.stop(time + 0.15);
+}
+
+function playTom(time) {
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(200, time);
+  osc.frequency.exponentialRampToValueAtTime(80, time + 0.15);
+  gain.gain.setValueAtTime(0.8, time);
+  gain.gain.exponentialRampToValueAtTime(0.001, time + 0.25);
+  osc.connect(gain);
+  gain.connect(masterGain);
+  osc.start(time);
+  osc.stop(time + 0.25);
+}
+
+const soundFns = {
+  kick: playKick,
+  snare: playSnare,
+  hihat: playHiHat,
+  clap: playClap,
+  tom: playTom
+};
+
+// ======================== SEQUENCER STATE ========================
+const STEPS = 16;
+const instruments = [
+  { id: 'kick',   label: 'Kick',   emoji: '🔴' },
+  { id: 'snare',  label: 'Snare',  emoji: '🟡' },
+  { id: 'hihat',  label: 'Hi-Hat', emoji: '🟢' },
+  { id: 'clap',   label: 'Clap',   emoji: '🔵' },
+  { id: 'tom',    label: 'Tom',    emoji: '🟣' }
+];
+
+let grid = {};
+let bpm = 120;
+let isPlaying = false;
+let currentStep = -1;
+let schedulerTimer = null;
+let nextNoteTime = 0;
+const scheduleAheadTime = 0.1;
+const lookahead = 25; // ms
+
+instruments.forEach(inst => {
+  grid[inst.id] = new Array(STEPS).fill(false);
+});
+
+// ======================== BUILD UI ========================
+function buildSequencer() {
+  const container = document.getElementById('sequencer');
+  container.innerHTML = '';
+
+  instruments.forEach(inst => {
+    const row = document.createElement('div');
+    row.className = `seq-row row-${inst.id}`;
+
+    const label = document.createElement('div');
+    label.className = 'seq-label';
+    label.innerHTML = `<span class="emoji">${inst.emoji}</span> ${inst.label}`;
+    row.appendChild(label);
+
+    const stepsDiv = document.createElement('div');
+    stepsDiv.className = 'seq-steps';
+
+    for (let i = 0; i < STEPS; i++) {
+      const step = document.createElement('div');
+      step.className = 'step' + (i % 4 === 0 ? ' group-start' : '');
+      step.dataset.inst = inst.id;
+      step.dataset.step = i;
+      step.addEventListener('click', () => toggleStep(inst.id, i, step));
+      stepsDiv.appendChild(step);
+    }
+
+    row.appendChild(stepsDiv);
+    container.appendChild(row);
+  });
+}
+
+function toggleStep(instId, stepIdx, el) {
+  ensureAudioCtx();
+  grid[instId][stepIdx] = !grid[instId][stepIdx];
+  el.classList.toggle('active');
+
+  // Предпрослушка при активации
+  if (grid[instId][stepIdx]) {
+    soundFns[instId](audioCtx.currentTime);
+  }
+}
+
+function updateStepUI() {
+  document.querySelectorAll('.step').forEach(el => el.classList.remove('current'));
+  if (currentStep < 0) return;
+  document.querySelectorAll(`.step[data-step="${currentStep}"]`).forEach(el => {
+    el.classList.add('current');
+  });
+}
+
+// ======================== SCHEDULER ========================
+function nextNote() {
+  const secondsPerBeat = 60.0 / bpm;
+  const secondsPerStep = secondsPerBeat / 4; // 16-я ноты
+  nextNoteTime += secondsPerStep;
+  currentStep = (currentStep + 1) % STEPS;
+}
+
+function scheduleNote(stepNumber, time) {
+  instruments.forEach(inst => {
+    if (grid[inst.id][stepNumber]) {
+      soundFns[inst.id](time);
+    }
+  });
+}
+
+function scheduler() {
+  while (nextNoteTime < audioCtx.currentTime + scheduleAheadTime) {
+    scheduleNote(currentStep === -1 ? 0 : (currentStep + 1) % STEPS, nextNoteTime);
+    // Для простоты: currentStep обновляем синхронно с UI через setInterval
+    nextNote();
+  }
+}
+
+// UI updater
+let uiStep = -1;
+function updateUI() {
+  if (!isPlaying) return;
+  const secondsPerBeat = 60.0 / bpm;
+  const secondsPerStep = secondsPerBeat / 4;
+  const elapsed = audioCtx.currentTime - (nextNoteTime - STEPS * secondsPerStep);
+  // Простой подход: обновляем currentStep по времени
+  // Но мы используем scheduler, который уже двигает currentStep
+  // Просто используем currentStep из scheduler
+}
+
+// Более простой подход к scheduler
+let stepInterval = null;
+
+function startPlaying() {
+  ensureAudioCtx();
+  isPlaying = true;
+  currentStep = -1;
+  nextNoteTime = audioCtx.currentTime;
+  document.getElementById('playBtn').classList.add('playing');
+  document.getElementById('playIcon').textContent = '⏸';
+  document.getElementById('playText').textContent = 'Stop';
+  document.getElementById('recDot').classList.add('active');
+
+  schedulerTimer = setInterval(() => {
+    while (nextNoteTime < audioCtx.currentTime + scheduleAheadTime) {
+      const stepToPlay = (currentStep + 1) % STEPS;
+      scheduleNote(stepToPlay, nextNoteTime);
+      currentStep = stepToPlay;
+      nextNote();
+    }
+  }, lookahead);
+
+  // UI обновление
+  stepInterval = setInterval(() => {
+    updateStepUI();
+  }, 50);
+}
+
+function stopPlaying() {
+  isPlaying = false;
+  if (schedulerTimer) clearInterval(schedulerTimer);
+  if (stepInterval) clearInterval(stepInterval);
+  schedulerTimer = null;
+  stepInterval = null;
+  currentStep = -1;
+  document.getElementById('playBtn').classList.remove('playing');
+  document.getElementById('playIcon').textContent = '▶';
+  document.getElementById('playText').textContent = 'Play';
+  document.getElementById('recDot').classList.remove('active');
+  updateStepUI();
+}
+
+function togglePlay() {
+  if (isPlaying) stopPlaying();
+  else startPlaying();
+}
+
+function updateBPM(val) {
+  bpm = parseInt(val);
+  document.getElementById('bpmValue').textContent = bpm;
+}
+
+function clearAll() {
+  instruments.forEach(inst => {
+    grid[inst.id].fill(false);
+  });
+  document.querySelectorAll('.step.active').forEach(el => el.classList.remove('active'));
+}
+
+// ======================== PRESETS ========================
+const presets = {
+  hiphop: {
+    bpm: 90,
+    kick:  [1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0],
+    snare: [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0],
+    hihat: [1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0],
+    clap:  [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,1],
+    tom:   [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0]
+  },
+  techno: {
+    bpm: 130,
+    kick:  [1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0],
+    snare: [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0],
+    hihat: [1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0],
+    clap:  [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0],
+    tom:   [0,0,0,0, 0,0,0,1, 0,0,0,0, 0,0,1,0]
+  },
+  dnb: {
+    bpm: 174,
+    kick:  [1,0,0,0, 0,0,1,0, 0,0,1,0, 0,0,0,0],
+    snare: [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,1],
+    hihat: [1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0],
+    clap:  [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0],
+    tom:   [0,0,0,0, 0,0,0,0, 0,1,0,0, 0,0,0,0]
+  },
+  reggaeton: {
+    bpm: 95,
+    kick:  [1,0,0,1, 0,0,1,0, 0,1,0,0, 1,0,0,0],
+    snare: [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0],
+    hihat: [1,1,1,1, 1,1,1,1, 1,1,1,1, 1,1,1,1],
+    clap:  [0,0,0,0, 1,0,0,1, 0,0,0,0, 1,0,0,0],
+    tom:   [0,0,0,0, 0,0,0,0, 0,0,1,0, 0,0,0,1]
+  }
+};
+
+function loadPreset(name) {
+  ensureAudioCtx();
+  const preset = presets[name];
+  if (!preset) return;
+
+  stopPlaying();
+  updateBPM(preset.bpm);
+  document.getElementById('bpmSlider').value = preset.bpm;
+
+  instruments.forEach(inst => {
+    for (let i = 0; i < STEPS; i++) {
+      grid[inst.id][i] = !!preset[inst.id][i];
+    }
+  });
+
+  // Обновить UI
+  instruments.forEach(inst => {
+    document.querySelectorAll(`.step[data-inst="${inst.id}"]`).forEach((el, i) => {
+      if (grid[inst.id][i]) el.classList.add('active');
+      else el.classList.remove('active');
+    });
+  });
+}
+
+// ======================== VISUALIZER ========================
+const canvas = document.getElementById('visualizer');
+const canvasCtx = canvas.getContext('2d');
+
+function resizeCanvas() {
+  canvas.width = canvas.offsetWidth * window.devicePixelRatio;
+  canvas.height = canvas.offsetHeight * window.devicePixelRatio;
+  canvasCtx.scale(window.devicePixelRatio, window.devicePixelRatio);
+}
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
+
+function drawVisualizer() {
+  requestAnimationFrame(drawVisualizer);
+
+  const w = canvas.offsetWidth;
+  const h = canvas.offsetHeight;
+
+  canvasCtx.clearRect(0, 0, w, h);
+
+  if (!analyser) {
+    // Рисуем заглушку
+    canvasCtx.fillStyle = 'rgba(124,58,237,0.1)';
+    canvasCtx.fillRect(0, 0, w, h);
+    canvasCtx.fillStyle = 'rgba(167,139,250,0.3)';
+    canvasCtx.font = '14px Inter';
+    canvasCtx.textAlign = 'center';
+    canvasCtx.fillText('Нажмите Play для запуска визуализации', w/2, h/2);
+    return;
+  }
+
+  const bufferLength = analyser.frequencyBinCount;
+  const dataArray = new Uint8Array(bufferLength);
+  analyser.getByteFrequencyData(dataArray);
+
+  // Bars
+  const barCount = 64;
+  const barWidth = (w / barCount) - 2;
+  const step = Math.floor(bufferLength / barCount);
+
+  for (let i = 0; i < barCount; i++) {
+    const value = dataArray[i * step];
+    const barHeight = (value / 255) * h * 0.9;
+    const x = i * (barWidth + 2);
+    const y = h - barHeight;
+
+    const hue = 260 + (i / barCount) * 60;
+    const saturation = 70 + (value / 255) * 30;
+    const lightness = 40 + (value / 255) * 30;
+
+    canvasCtx.fillStyle = `hsla(${hue}, ${saturation}%, ${lightness}%, 0.8)`;
+    canvasCtx.beginPath();
+    canvasCtx.roundRect(x, y, barWidth, barHeight, 3);
+    canvasCtx.fill();
+
+    // Glow
+    canvasCtx.fillStyle = `hsla(${hue}, ${saturation}%, ${lightness}%, 0.15)`;
+    canvasCtx.beginPath();
+    canvasCtx.roundRect(x - 2, y - 4, barWidth + 4, barHeight + 8, 5);
+    canvasCtx.fill();
+  }
+
+  // Waveform overlay
+  const waveData = new Uint8Array(bufferLength);
+  analyser.getByteTimeDomainData(waveData);
+
+  canvasCtx.beginPath();
+  canvasCtx.strokeStyle = 'rgba(167,139,250,0.4)';
+  canvasCtx.lineWidth = 2;
+
+  const sliceWidth = w / bufferLength;
+  let waveX = 0;
+
+  for (let i = 0; i < bufferLength; i++) {
+    const v = waveData[i] / 128.0;
+    const waveY = (v * h) / 2;
+    if (i === 0) canvasCtx.moveTo(waveX, waveY);
+    else canvasCtx.lineTo(waveX, waveY);
+    waveX += sliceWidth;
+  }
+
+  canvasCtx.stroke();
+}
+
+drawVisualizer();
+
+// ======================== INIT ========================
+buildSequencer();
+
+// Клавиша пробел для play/stop
+document.addEventListener('keydown', (e) => {
+  if (e.code === 'Space' && e.target.tagName !== 'INPUT') {
+    e.preventDefault();
+    togglePlay();
+  }
+});
+</script>
+
+</body>
+</html>
